@@ -6,6 +6,7 @@ from scipy import optimize as optimize
 from numpy.linalg import norm
 import corenlp
 import string
+from  time import time
 
 '''########################################Variables#######################################'''
 Train_Set = []
@@ -193,7 +194,6 @@ def Build_Y(X, index, zi, O):
     Z.append(zi)
     o.append("Nothing")
 
-
     if O == "Spell":
         tmp = Deletion(zi)
         for i in tmp:
@@ -228,6 +228,45 @@ def Build_Y(X, index, zi, O):
 
     return [Z, o]
 #------------------------------------------------------------------------------------------
+def isword(x, lm):
+    if abs(x.find('#') - x.find('-')) == 1:
+        return 0
+    dash_point = x.find('-')
+    if dash_point != -1:
+        first = x[:dash_point]    # from beginning to n (n not included)
+        secound = x[dash_point+1:]    # n+1 through end of string
+        sharp_point = first.find('#')
+        if sharp_point != -1:
+            begin = first[:sharp_point]
+            end = first[sharp_point+1:]
+            tmp_str = begin + end
+            if Get_Probability(tmp_str, lm) < -49:
+                return 0
+        else:
+            if Get_Probability(first, lm) < -49:
+                return 0
+        sharp_point = secound.find('#')
+        if sharp_point != -1:
+            begin = secound[:sharp_point]
+            end = secound[sharp_point+1:]
+            tmp_str = begin + end
+            if Get_Probability(tmp_str, lm) < -49:
+                return 0
+        else:
+            if Get_Probability(secound, lm) < -49:
+                return 0
+    sharp_point = x.find('#')
+    if sharp_point != -1:
+        begin = x[:sharp_point]
+        end = x[sharp_point+1:]
+        tmp_str = begin + end
+        if Get_Probability(tmp_str, lm) < -49:
+            return 0
+    else:
+        if Get_Probability(x, lm) < -49:
+            return 0
+    return 1
+#------------------------------------------------------------------------------------------
 def Get_Possible_Y(X, index, lm):
     x = X.split(" ")
 
@@ -249,15 +288,16 @@ def Get_Possible_Y(X, index, lm):
     '''
 
 
-    '''Spell Merg Split'''
-    [Z, o] = Build_Y(X, index, zi, "Spell")
-    for i in range(len(Z)):
-        [ZZ, oo] = Build_Y(X, index, Z[i], "Merg")
-        for j in range(len(ZZ)):
-            [ZZZ, ooo] = Build_Y(X, index, ZZ[j], "Split")
-            for k in range(len(ZZZ)):
-                Y.append([Z[i], ZZ[j], ZZZ[k]])
-                O.append([o[i], oo[j], ooo[k]])
+#    '''Spell Merg Split'''
+#    [Z, o] = Build_Y(X, index, zi, "Spell")
+#    for i in range(len(Z)):
+#        [ZZ, oo] = Build_Y(X, index, Z[i], "Merg")
+#        for j in range(len(ZZ)):
+#            [ZZZ, ooo] = Build_Y(X, index, ZZ[j], "Split")
+#            for k in range(len(ZZZ)):
+#                if isword(ZZZ[k], lm) == 1 or (o[i] == "Nothing" and oo[j] == "Nothing" and ooo[k] == "Nothing"):
+#                    Y.append([Z[i], ZZ[j], ZZZ[k]])
+#                    O.append([o[i], oo[j], ooo[k]])
 
     '''Split Spell Merg'''
     '''
@@ -290,30 +330,32 @@ def Get_Possible_Y(X, index, lm):
         for j in range(len(ZZ)):
             [ZZZ, ooo] = Build_Y(X, index, ZZ[j], "Spell")
             for k in range(len(ZZZ)):
-                Y.append([Z[i], ZZ[j], ZZZ[k]])
-                O.append([o[i], oo[j], ooo[k]])
+                if isword(ZZZ[k], lm) == 1 or (o[i] == "Nothing" and oo[j] == "Nothing" and ooo[k] == "Nothing"):
+                    Y.append([Z[i], ZZ[j], ZZZ[k]])
+                    O.append([o[i], oo[j], ooo[k]])
 
-    '''Merg Spell Split'''
-    [Z, o] = Build_Y(X, index, zi, "Merg")
-    for i in range(len(Z)):
-        [ZZ, oo] = Build_Y(X, index, Z[i], "Spell")
-        for j in range(len(ZZ)):
-            [ZZZ, ooo] = Build_Y(X, index, ZZ[j], "Split")
-            for k in range(len(ZZZ)):
-                Y.append([Z[i], ZZ[j], ZZZ[k]])
-                O.append([o[i], oo[j], ooo[k]])
+
+
+#    '''Merg Spell Split'''
+#    [Z, o] = Build_Y(X, index, zi, "Merg")
+#    for i in range(len(Z)):
+#        [ZZ, oo] = Build_Y(X, index, Z[i], "Spell")
+#        for j in range(len(ZZ)):
+#            [ZZZ, ooo] = Build_Y(X, index, ZZ[j], "Split")
+#            for k in range(len(ZZZ)):
+#                if isword(ZZZ[k], lm) == 1 or (o[i] == "Nothing" and oo[j] == "Nothing" and ooo[k] == "Nothing"):
+#                    Y.append([Z[i], ZZ[j], ZZZ[k]])
+#                    O.append([o[i], oo[j], ooo[k]])
 
     return [Y, O]
 #------------------------------------------------------------------------------------------
 def Test_Model(X, lamda, lm):    #X is the input string, lamda is the parameter
-    O_List = ["Nothing","Splitting", "Merging", "Deletion", "Stemming", "Insertion", "Substitution", "Transposition"]
     x = X.split(" ")
     Best_O = []
     Best_y = []
 
     yi_1 = "<s>"
     index = 0
-    poi = ""
     isreplace = 0
     merged_before = 0
 
@@ -330,9 +372,6 @@ def Test_Model(X, lamda, lm):    #X is the input string, lamda is the parameter
 
         for yi in range (len(Y)):
             zi = Y[yi][len(Y[yi])-1]
-            if abs(zi.find('#') - zi.find('-')) == 1:
-                continue
-
             if zi.find('-') != -1:
                 begin = zi[:zi.find('-')]    # from beginning to n (n not included)
                 end = zi[zi.find('-')+1:]    # n+1 through end of string
@@ -343,17 +382,8 @@ def Test_Model(X, lamda, lm):    #X is the input string, lamda is the parameter
                 tmp_string = fp + sp
             else:
                 tmp_string = zi
-            score = lamda * f(yi_1, tmp_string, lm) + lamda + lamda *Get_Probability(tmp_string, lm)#* h(yi, oi, X, index)
+            score = lamda * f(yi_1, tmp_string, lm) + lamda #+ lamda *Get_Probability(tmp_string, lm)#* h(yi, oi, X, index)
 
-            tmp_varialbe = Y[yi][len(Y[yi])-1]
-            if tmp_varialbe.find('-') != -1:
-                fp = zi[:tmp_varialbe.find('-')]    # from beginning to n (n not included)
-                sp = zi[tmp_varialbe.find('-')+1:]    # n+1 through end of string
-                if sp.find('#') != -1:
-                    first = sp[:sp.find('#')]
-                    sec = sp[sp.find('#')+1,:]
-                    if Get_Probability(first + sec, lm) < -49:
-                        continue
             if score > Best_P:
                 Best_oi = O[yi]
                 Best_zi = Y[yi]
@@ -376,8 +406,6 @@ def Test_Model(X, lamda, lm):    #X is the input string, lamda is the parameter
                 isreplace = 0
         elif tmp_varialbe.find('#') != -1:
             merged_before = 1
-
-
 
         index += 1
         Best_O.append(Best_oi)
@@ -467,8 +495,18 @@ if __name__ == "__main__":
     #Get_Possible_Y("ho w to mace catt", 1, Language_Model)
     #landa = optimize.minimize(F_Function, [1], method='L-BFGS-B', options=dict({'maxiter':10}))
 
+    start = time()
     #O_landa = landa.x[0]
-    O_landa = 1
-    x = Test_Model("ho w to mace catt", O_landa, Language_Model)
-    print(x)
-    print("--------------finish-----------------")
+    #O_landa = 1
+    #x = Test_Model("ho w to mace catt", O_landa, Language_Model)
+    #print(x)
+    #print("--------------finish-----------------")
+
+    x = "ho"
+    y = 0
+    for i in range(10000):
+        if Get_Probability(x , Language_Model) > -50:
+            y = 1
+    print(y)
+
+    print (time()-start)
