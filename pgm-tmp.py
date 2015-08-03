@@ -346,8 +346,42 @@ def F_Function(lamda):
     sum -= norm(lamda)**2 * 10000000
     print "score is: ", sum
     print "landa is: ", lamda
-    result= -1 * sum
+    result = -1 * sum
     return result
+def Test_Function(landa, Test_file, lm, Dic):
+    myfile = open(Test_file)
+    tp = 0
+    fp = 0
+    fn = 0
+    tn = 0
+    counter = 0
+    for line in myfile:
+        counter += 1
+        print counter
+        line = line.strip("\n")
+        currentline = line.split(",")
+        result = Test_Model(currentline[0], landa, lm, Dic)
+        refined_q = result[1]
+        true_q = currentline[1].split(" ")
+        for w in range(len(refined_q)):
+            if refined_q[w] in true_q:#t
+                if refined_q[w] in currentline[0]:#n
+                    tn += 1
+                else:
+                    tp += 1
+            else:#f
+                if refined_q[w] in currentline[0]:#n
+                    fn += 1
+                else:
+                    fp += 1
+
+    prec = (tp+1)*1.0/((tp+fp)+1)*1.0
+    rec = (tp+1)*1.0/((tp+fn)+1)*1.0
+    F_measure = (2*rec*prec)*1.0/(rec+prec)*1.0
+    acc = (tn+tp)*1.0/(tp+tn+fn+fp)*1.0
+    return [acc, prec, rec, F_measure]
+
+
 '''###########################################################################################'''
 if __name__ == "__main__":
 
@@ -370,13 +404,18 @@ if __name__ == "__main__":
     Dictionary = to_dict(Dictionary)
 
     #Get_Possible_Y("ho w to mace catt", 1, Language_Model)
-    landa = optimize.minimize(F_Function, [1], method='L-BFGS-B', bounds = ((0, None),) ,options=dict({'maxiter':10}))
+    #landa = optimize.minimize(F_Function, [1], method='L-BFGS-B', bounds = ((0, None),) ,options=dict({'maxiter':10}))
+    #O_landa = landa.x[0]
+    #print "best landa is: " , O_landa
 
     start = time()
-    O_landa = landa.x[0]
-    print "best landa is: " , O_landa
-    #O_landa = 0.000793534564046
-    x = Test_Model("ho w to mace catt", O_landa, Language_Model, Dictionary)
+    O_landa = 0.000793534564046
+    res = Test_Function(O_landa, "out.txt", Language_Model, Dictionary)
+    print "Acc is: ", res[0]
+    print "Precision is: ", res[1]
+    print "recall is: ", res[2]
+    print "F-measure is: ", res[3]
+    #x = Test_Model("ho w to mace catt", O_landa, Language_Model, Dictionary)
     print(x)
     print("--------------finish-----------------")
     print (time()-start)
