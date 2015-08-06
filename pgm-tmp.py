@@ -29,13 +29,16 @@ def f(yi_1, yi, lm):
 #------------------------------------------------------------------------------------------
 def Get_Probability(x, Dic):
     if x in Dic.keys():
-        return Dic[x]
+        tmp = Dic[x]
+        return tmp
     else:
         return -50
 #------------------------------------------------------------------------------------------
 def Deletion(x):
     P_List = []
     for k in range(len(x)):
+        if x[k] == '-' or x[k] == '#':
+            continue
         begin = x[:k]    # from beginning to n (n not included)
         end = x[k+1:]    # n+1 through end of string
         tmp_string = begin + end
@@ -67,6 +70,8 @@ def Substitution(x):
     list = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
             'u', 'v', 'w', 'x', 'y', 'z']
     for k in range(len(x)):
+        if x[k] == '-' or x[k] == '#':
+            continue
         for char in list:
             begin = x[:k]    # from beginning to n (n not included)
             end = x[k+1:]    # n+1 through end of string
@@ -93,7 +98,7 @@ def Transposition(x):
 
 def Splitting(x):
     P_List = []
-    char = '#'
+    char = '-'
     for k in range(1, len(x)):
         begin = x[:k]    # from beginning to n (n not included)
         end = x[k:]    # n+1 through end of string
@@ -135,7 +140,7 @@ def Build_Y(X, index, zi, O):
 
     elif O == "Merg":
         if index < len(x)-1:
-            tmp = zi +'-'+ x[index+1]
+            tmp = zi +'#'+ x[index+1]
             tmp = tmp.split("*")
             for i in tmp:
                 Z.append(i)
@@ -169,7 +174,9 @@ def isword(x, Dic):
                 return 0
         else:
             if Get_Probability(secound, Dic) < -49:
-                return 0
+                return 1#iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiin bayad 0 bargardone
+
+        return 1
     sharp_point = x.find('#')
     if sharp_point != -1:
         begin = x[:sharp_point]
@@ -177,9 +184,13 @@ def isword(x, Dic):
         tmp_str = begin + end
         if Get_Probability(tmp_str, Dic) < -49:
             return 0
+        else:
+            return 1
     else:
         if Get_Probability(x, Dic) < -49:
             return 0
+        else:
+            return 1
     return 1
 #------------------------------------------------------------------------------------------
 def Get_Possible_Y(X, index, Dic):
@@ -271,8 +282,8 @@ def Test_Model(X, lamda, lm, Dic):    #X is the input string, lamda is the param
 
     yi_1 = "<s>"
     index = 0
-    isreplace = 0
     merged_before = 0
+    split_before = 0
 
     for i in  range(len(x)):
         Best_P = -10000
@@ -280,13 +291,21 @@ def Test_Model(X, lamda, lm, Dic):    #X is the input string, lamda is the param
         Best_yi = ""
 
         if merged_before == 1:
+            merged_before = 0
             index += 1
             continue
+
+
+        if split_before == 1:
+            split_before = 0
+            if yi_1.find(' ') != -1:
+                yi_1 = yi_1.split(" ")
+                yi_1 = yi_1[1]
 
         [Y, O] = Get_Possible_Y(X, i, Dic)
 
         for yi in range (len(Y)):
-            zi = Y[yi][len(Y[yi])-1]
+            zi =Y[yi][len(Y[yi])-1]
             if zi.find('-') != -1:
                 begin = zi[:zi.find('-')]    # from beginning to n (n not included)
                 end = zi[zi.find('-')+1:]    # n+1 through end of string
@@ -297,7 +316,7 @@ def Test_Model(X, lamda, lm, Dic):    #X is the input string, lamda is the param
                 tmp_string = fp + sp
             else:
                 tmp_string = zi
-            score = lamda * f(yi_1, tmp_string, lm) + lamda #+ lamda *Get_Probability(tmp_string, lm)#* h(yi, oi, X, index)
+            score = lamda[0] * f(yi_1, tmp_string, lm) + lamda[1] + lamda[2] * Get_Probability(tmp_string, Dic) #+ lamda *Get_Probability(tmp_string, lm)#* h(yi, oi, X, index)
 
             if score > Best_P:
                 Best_oi = O[yi]
@@ -305,20 +324,25 @@ def Test_Model(X, lamda, lm, Dic):    #X is the input string, lamda is the param
                 Best_yi = zi
                 Best_P = score
 
-        isreplace = 0
-        merged_before = 0
+        merged_before = 0# agar kalame badi ba kalame feli merg shode bashad 1 mishavad
+        split_before = 0
         tmp_varialbe = Best_zi[len(Best_zi)-1]
         if tmp_varialbe.find('-') != -1:
-            fp = zi[:tmp_varialbe.find('-')]    # from beginning to n (n not included)
-            sp = zi[tmp_varialbe.find('-')+1:]    # n+1 through end of string
+            fp = tmp_varialbe[:tmp_varialbe.find('-')]    # from beginning to n (n not included)
+            sp = tmp_varialbe[tmp_varialbe.find('-')+1:]    # n+1 through end of string
             if sp.find('#') != -1:
                 first = sp[:sp.find('#')]
                 sec = sp[sp.find('#')+1,:]
                 next_y = first+sec
-                isreplace = 1
+                Best_yi = Best_yi + " " + next_y
+                split_before = 1
+                merged_before = 1
             else:
                 next_y = sp
-                isreplace = 0
+                Best_yi = Best_yi + " " + sp
+                split_before = 1
+            if fp.find('#') != -1:
+                merged_before = 1
         elif tmp_varialbe.find('#') != -1:
             merged_before = 1
 
@@ -339,7 +363,7 @@ def F_Function(lamda):
         yi_1 = "<s>"
         for j in range(len(y)):
             yi = y[j]
-            score =  lamda * f(yi_1, yi, lm) + lamda * 1 #h(yi, oi, X, j))
+            score =  lamda[0] * f(yi_1, yi, lm) + lamda[1] * 1 + lamda[2] * Get_Probability(yi, Dictionary)#h(yi, oi, X, j))
             yi_1 = yi
             sum += score
     nnnn = norm(lamda)
@@ -348,6 +372,7 @@ def F_Function(lamda):
     print "landa is: ", lamda
     result = -1 * sum
     return result
+#------------------------------------------------------------------------------------------
 def Test_Function(landa, Test_file, lm, Dic):
     myfile = open(Test_file)
     tp = 0
@@ -363,6 +388,15 @@ def Test_Function(landa, Test_file, lm, Dic):
         result = Test_Model(currentline[0], landa, lm, Dic)
         refined_q = result[1]
         true_q = currentline[1].split(" ")
+        for i in range(len(refined_q)):
+            if refined_q[i].find('-') != -1:
+                begin = refined_q[i][:refined_q[i].find('-')]    # from beginning to n (n not included)
+                end = refined_q[i][refined_q[i].find('-')+1:]    # n+1 through end of string
+                refined_q[i] = begin + " " + end
+            if refined_q[i].find('#') != -1:
+                begin = refined_q[i][:refined_q[i].find('#')]    # from beginning to n (n not included)
+                end = refined_q[i][refined_q[i].find('#')+1:]    # n+1 through end of string
+                refined_q[i] = begin  + end
         for w in range(len(refined_q)):
             if refined_q[w] in true_q:#t
                 if refined_q[w] in currentline[0]:#n
@@ -379,13 +413,14 @@ def Test_Function(landa, Test_file, lm, Dic):
     rec = (tp+1)*1.0/((tp+fn)+1)*1.0
     F_measure = (2*rec*prec)*1.0/(rec+prec)*1.0
     acc = (tn+tp)*1.0/(tp+tn+fn+fp)*1.0
+    myfile.close()
     return [acc, prec, rec, F_measure]
 
 
 '''###########################################################################################'''
 if __name__ == "__main__":
 
-    myfile = open("train.csv", "r")
+    myfile = open("dataset/train.csv", "r")
     for line in myfile:
         line = line.strip("\n")
         currentline = line.split(",")
@@ -395,27 +430,29 @@ if __name__ == "__main__":
     Train_Set = train
     myfile.close()
 
-    Language_Model = pd.DataFrame().from_csv("bigram.csv")
+    #myfile = open("dataset/bigram.csv")
+
+
+    Language_Model = pd.DataFrame().from_csv("dataset/bigram.csv")
     Language_Model.columns = ["digram", "log prob"]
     Language_Model = to_dict(Language_Model)
 
-    Dictionary = pd.DataFrame().from_csv("onegram.csv")
+    Dictionary = pd.DataFrame().from_csv("dataset/onegram.csv")
     Dictionary.columns = ["digram", "log prob"]
     Dictionary = to_dict(Dictionary)
 
     #Get_Possible_Y("ho w to mace catt", 1, Language_Model)
-    #landa = optimize.minimize(F_Function, [1], method='L-BFGS-B', bounds = ((0, None),) ,options=dict({'maxiter':10}))
-    #O_landa = landa.x[0]
+    #landa = optimize.minimize(F_Function, [1, 1], method='L-BFGS-B', bounds = ((0, None),(0,None),(0,None)) ,options=dict({'maxiter':10}))
+    #O_landa = landa.x
     #print "best landa is: " , O_landa
-
     start = time()
-    O_landa = 0.000793534564046
+    O_landa = [0.000793534564046,0.000793534564046,0.000793534564046]
     res = Test_Function(O_landa, "out.txt", Language_Model, Dictionary)
     print "Acc is: ", res[0]
     print "Precision is: ", res[1]
     print "recall is: ", res[2]
     print "F-measure is: ", res[3]
-    #x = Test_Model("ho w to mace catt", O_landa, Language_Model, Dictionary)
-    print(x)
+    #x = Test_Model("impor tantconferences", O_landa, Language_Model, Dictionary)
+    #print(x)
     print("--------------finish-----------------")
     print (time()-start)
